@@ -463,3 +463,61 @@ public class LRUCache<K, V> {
     }
 }
 ```
+
+## 6. Comparing Objects and Their Use in HashMap/HashSet
+
+```java
+class Person {
+    private String name;
+    private int age;
+
+    public Person(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Person person = (Person) o;
+        return age == person.age && name.equals(person.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return name.hashCode() * 31 + age;
+    }
+
+    @Override
+    public String toString() {
+        return name + ", " + age;
+    }
+}
+
+public class CompareDemo {
+    public static void main(String[] args) {
+        Person p1 = new Person("Alice", 30);
+        Person p2 = new Person("Alice", 30);
+        Person p3 = new Person("Bob", 25);
+
+        // Direct object comparison
+        System.out.println("p1.equals(p2): " + p1.equals(p2)); // true
+        System.out.println("p1 == p2: " + (p1 == p2)); // false
+
+        // HashSet demonstration
+        java.util.HashSet<Person> set = new java.util.HashSet<>();
+        set.add(p1);
+        set.add(p2);
+        set.add(p3);
+        System.out.println("HashSet: " + set); // Only two unique persons
+
+        // HashMap demonstration
+        java.util.HashMap<Person, String> map = new java.util.HashMap<>();
+        map.put(p1, "First");
+        map.put(p2, "Second"); // Overwrites value for same logical key
+        map.put(p3, "Third");
+        System.out.println("HashMap: " + map);
+    }
+}
+```
