@@ -42,6 +42,487 @@ public class ThreadSafeSingleton implements Serializable {
 }
 ```
 
+
+## 2. Implement a Custom ArrayList
+Implement a simplified version of ArrayList that can store integers. Your implementation should include:
+
+1. A constructor that initializes with a default capacity
+2. Methods to add elements (with automatic resizing when needed)
+3. Methods to get elements by index
+4. A method to remove elements by index
+5. A method to get the current size
+
+Example solution:
+
+```java
+public class CustomArrayList {
+    private int[] elements;
+    private int size;
+    private static final int DEFAULT_CAPACITY = 10;
+    
+    public CustomArrayList() {
+        elements = new int[DEFAULT_CAPACITY];
+        size = 0;
+    }
+    
+    public void add(int element) {
+        if (size == elements.length) {
+            // Resize array if needed
+            int[] newElements = new int[elements.length * 2];
+            System.arraycopy(elements, 0, newElements, 0, elements.length);
+            elements = newElements;
+        }
+        elements[size++] = element;
+    }
+    
+    public int get(int index) {
+        if (index < 0 || index >= size) {
+            throw new IndexOutOfBoundsException("Index: " + index + ", Size: " + size);
+        }
+        return elements[index];
+    }
+    
+    public void remove(int index) {
+        if (index < 0 || index >= size) {
+            throw new IndexOutOfBoundsException("Index: " + index + ", Size: " + size);
+        }
+        // Shift elements to remove the element at the specified index
+        System.arraycopy(elements, index + 1, elements, index, size - index - 1);
+        size--;
+    }
+    
+    public int size() {
+        return size;
+    }
+}
+```
+
+## 3. Implement a Producer-Consumer Pattern
+Implement a producer-consumer pattern using Java's built-in concurrency utilities. Your solution should:
+
+1. Create a bounded buffer shared between producers and consumers
+2. Implement producer threads that add items to the buffer
+3. Implement consumer threads that remove items from the buffer
+4. Ensure thread safety and prevent race conditions
+5. Handle the case when the buffer is full (producers wait) or empty (consumers wait)
+
+Example solution:
+
+```java
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
+public class ProducerConsumerExample {
+    private static final int BUFFER_SIZE = 5;
+    
+    public static void main(String[] args) {
+        // Shared buffer
+        BlockingQueue<Integer> buffer = new LinkedBlockingQueue<>(BUFFER_SIZE);
+        
+        // Create producer and consumer threads
+        Thread producerThread = new Thread(new Producer(buffer));
+        Thread consumerThread = new Thread(new Consumer(buffer));
+        
+        // Start threads
+        producerThread.start();
+        consumerThread.start();
+    }
+    
+    static class Producer implements Runnable {
+        private final BlockingQueue<Integer> buffer;
+        
+        Producer(BlockingQueue<Integer> buffer) {
+            this.buffer = buffer;
+        }
+        
+        @Override
+        public void run() {
+            try {
+                for (int i = 0; i < 10; i++) {
+                    System.out.println("Producing: " + i);
+                    // put() will block if the buffer is full
+                    buffer.put(i);
+                    Thread.sleep(100); // Simulate work
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+    
+    static class Consumer implements Runnable {
+        private final BlockingQueue<Integer> buffer;
+        
+        Consumer(BlockingQueue<Integer> buffer) {
+            this.buffer = buffer;
+        }
+        
+        @Override
+        public void run() {
+            try {
+                while (true) {
+                    // take() will block if the buffer is empty
+                    int value = buffer.take();
+                    System.out.println("Consuming: " + value);
+                    Thread.sleep(200); // Simulate work
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+}
+```
+
+## 4. Implement a Binary Search Tree
+Implement a Binary Search Tree (BST) in Java with the following operations:
+
+1. Insert a value
+2. Search for a value
+3. Delete a value
+4. Perform in-order traversal
+5. Find the minimum and maximum values
+
+Example solution:
+
+```java
+public class BinarySearchTree {
+    private Node root;
+    
+    private static class Node {
+        int value;
+        Node left;
+        Node right;
+        
+        Node(int value) {
+            this.value = value;
+            this.left = null;
+            this.right = null;
+        }
+    }
+    
+    public void insert(int value) {
+        root = insertRec(root, value);
+    }
+    
+    private Node insertRec(Node root, int value) {
+        if (root == null) {
+            root = new Node(value);
+            return root;
+        }
+        
+        if (value < root.value) {
+            root.left = insertRec(root.left, value);
+        } else if (value > root.value) {
+            root.right = insertRec(root.right, value);
+        }
+        
+        return root;
+    }
+    
+    public boolean search(int value) {
+        return searchRec(root, value);
+    }
+    
+    private boolean searchRec(Node root, int value) {
+        if (root == null) {
+            return false;
+        }
+        
+        if (root.value == value) {
+            return true;
+        }
+        
+        if (value < root.value) {
+            return searchRec(root.left, value);
+        } else {
+            return searchRec(root.right, value);
+        }
+    }
+    
+    public void delete(int value) {
+        root = deleteRec(root, value);
+    }
+    
+    private Node deleteRec(Node root, int value) {
+        if (root == null) {
+            return null;
+        }
+        
+        if (value < root.value) {
+            root.left = deleteRec(root.left, value);
+        } else if (value > root.value) {
+            root.right = deleteRec(root.right, value);
+        } else {
+            // Node with only one child or no child
+            if (root.left == null) {
+                return root.right;
+            } else if (root.right == null) {
+                return root.left;
+            }
+            
+            // Node with two children
+            root.value = minValue(root.right);
+            
+            // Delete the inorder successor
+            root.right = deleteRec(root.right, root.value);
+        }
+        
+        return root;
+    }
+    
+    private int minValue(Node root) {
+        int minValue = root.value;
+        while (root.left != null) {
+            minValue = root.left.value;
+            root = root.left;
+        }
+        return minValue;
+    }
+    
+    public void inOrderTraversal() {
+        inOrderRec(root);
+        System.out.println();
+    }
+    
+    private void inOrderRec(Node root) {
+        if (root != null) {
+            inOrderRec(root.left);
+            System.out.print(root.value + " ");
+            inOrderRec(root.right);
+        }
+    }
+    
+    public int findMin() {
+        if (root == null) {
+            throw new IllegalStateException("Tree is empty");
+        }
+        
+        Node current = root;
+        while (current.left != null) {
+            current = current.left;
+        }
+        
+        return current.value;
+    }
+    
+    public int findMax() {
+        if (root == null) {
+            throw new IllegalStateException("Tree is empty");
+        }
+        
+        Node current = root;
+        while (current.right != null) {
+            current = current.right;
+        }
+        
+        return current.value;
+    }
+}
+```
+
+## 5. Implement a Custom Cache with LRU Eviction Policy
+Implement a simple Least Recently Used (LRU) cache in Java with the following features:
+
+1. Fixed capacity
+2. O(1) time complexity for get and put operations
+3. Automatic eviction of least recently used items when capacity is reached
+4. Thread safety (optional bonus)
+
+Example solution:
+
+```java
+import java.util.HashMap;
+import java.util.Map;
+
+public class LRUCache<K, V> {
+    private final int capacity;
+    private final Map<K, Node<K, V>> cache;
+    private Node<K, V> head;
+    private Node<K, V> tail;
+    
+    private static class Node<K, V> {
+        K key;
+        V value;
+        Node<K, V> prev;
+        Node<K, V> next;
+        
+        Node(K key, V value) {
+            this.key = key;
+            this.value = value;
+        }
+    }
+    
+    public LRUCache(int capacity) {
+        this.capacity = capacity;
+        this.cache = new HashMap<>();
+        this.head = null;
+        this.tail = null;
+    }
+    
+    public V get(K key) {
+        Node<K, V> node = cache.get(key);
+        if (node == null) {
+            return null;
+        }
+        
+        // Move accessed node to the front (most recently used)
+        moveToFront(node);
+        return node.value;
+    }
+    
+    public void put(K key, V value) {
+        Node<K, V> existingNode = cache.get(key);
+        
+        if (existingNode != null) {
+            // Update existing node
+            existingNode.value = value;
+            moveToFront(existingNode);
+            return;
+        }
+        
+        // Create new node
+        Node<K, V> newNode = new Node<>(key, value);
+        
+        // Check if cache is at capacity
+        if (cache.size() >= capacity) {
+            // Remove least recently used item (tail)
+            cache.remove(tail.key);
+            removeTail();
+        }
+        
+        // Add new node to front
+        addToFront(newNode);
+        cache.put(key, newNode);
+    }
+    
+    private void moveToFront(Node<K, V> node) {
+        if (node == head) {
+            return; // Already at front
+        }
+        
+        // Remove from current position
+        if (node.prev != null) {
+            node.prev.next = node.next;
+        }
+        
+        if (node.next != null) {
+            node.next.prev = node.prev;
+        }
+        
+        if (node == tail) {
+            tail = node.prev;
+        }
+        
+        // Add to front
+        node.next = head;
+        node.prev = null;
+        
+        if (head != null) {
+            head.prev = node;
+        }
+        
+        head = node;
+        
+        if (tail == null) {
+            tail = node;
+        }
+    }
+    
+    private void addToFront(Node<K, V> node) {
+        node.next = head;
+        node.prev = null;
+        
+        if (head != null) {
+            head.prev = node;
+        }
+        
+        head = node;
+        
+        if (tail == null) {
+            tail = node;
+        }
+    }
+    
+    private void removeTail() {
+        if (tail == null) {
+            return;
+        }
+        
+        if (tail.prev != null) {
+            tail.prev.next = null;
+            tail = tail.prev;
+        } else {
+            // Only one node in the list
+            head = null;
+            tail = null;
+        }
+    }
+    
+    public int size() {
+        return cache.size();
+    }
+}
+```
+
+## 6. Comparing Objects and Their Use in HashMap/HashSet
+
+```java
+class Person {
+    private String name;
+    private int age;
+
+    public Person(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Person person = (Person) o;
+        return age == person.age && name.equals(person.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return name.hashCode() * 31 + age;
+    }
+
+    @Override
+    public String toString() {
+        return name + ", " + age;
+    }
+}
+
+public class CompareDemo {
+    public static void main(String[] args) {
+        Person p1 = new Person("Alice", 30);
+        Person p2 = new Person("Alice", 30);
+        Person p3 = new Person("Bob", 25);
+
+        // Direct object comparison
+        System.out.println("p1.equals(p2): " + p1.equals(p2)); // true
+        System.out.println("p1 == p2: " + (p1 == p2)); // false
+
+        // HashSet demonstration
+        java.util.HashSet<Person> set = new java.util.HashSet<>();
+        set.add(p1);
+        set.add(p2);
+        set.add(p3);
+        System.out.println("HashSet: " + set); // Only two unique persons
+
+        // HashMap demonstration
+        java.util.HashMap<Person, String> map = new java.util.HashMap<>();
+        map.put(p1, "First");
+        map.put(p2, "Second"); // Overwrites value for same logical key
+        map.put(p3, "Third");
+        System.out.println("HashMap: " + map);
+    }
+}
+```
+
 ## 7. Advanced Stream Operations in Java
 
 ### 7.1 Understanding the `reduce()` Operation
@@ -807,482 +1288,204 @@ public class JoiningExample {
 }
 ```
 
-## 2. Implement a Custom ArrayList
-Implement a simplified version of ArrayList that can store integers. Your implementation should include:
+### 7.7 Advanced Collector Functions
 
-1. A constructor that initializes with a default capacity
-2. Methods to add elements (with automatic resizing when needed)
-3. Methods to get elements by index
-4. A method to remove elements by index
-5. A method to get the current size
+**Theory:**
+Collectors are a powerful feature of the Stream API that allow for complex reduction operations. Here we'll explore some of the most powerful collector functions:
 
-Example solution:
+1. **`groupingBy()`** - Groups elements into a Map according to a classification function
+2. **`partitioningBy()`** - Special case of groupingBy that partitions elements into true/false groups
+3. **`counting()`** - Counts the number of elements
+4. **`summarizingInt/Long/Double()`** - Produces statistics like count, sum, min, max, average
+5. **`averagingInt/Long/Double()`** - Calculates the arithmetic mean
+6. **`mapping()`** - Adapts a collector to operate on the results of applying a mapping function
+7. **`teeing()`** - Forwards input to two collectors and merges their results (Java 12+)
 
-```java
-public class CustomArrayList {
-    private int[] elements;
-    private int size;
-    private static final int DEFAULT_CAPACITY = 10;
-    
-    public CustomArrayList() {
-        elements = new int[DEFAULT_CAPACITY];
-        size = 0;
-    }
-    
-    public void add(int element) {
-        if (size == elements.length) {
-            // Resize array if needed
-            int[] newElements = new int[elements.length * 2];
-            System.arraycopy(elements, 0, newElements, 0, elements.length);
-            elements = newElements;
-        }
-        elements[size++] = element;
-    }
-    
-    public int get(int index) {
-        if (index < 0 || index >= size) {
-            throw new IndexOutOfBoundsException("Index: " + index + ", Size: " + size);
-        }
-        return elements[index];
-    }
-    
-    public void remove(int index) {
-        if (index < 0 || index >= size) {
-            throw new IndexOutOfBoundsException("Index: " + index + ", Size: " + size);
-        }
-        // Shift elements to remove the element at the specified index
-        System.arraycopy(elements, index + 1, elements, index, size - index - 1);
-        size--;
-    }
-    
-    public int size() {
-        return size;
-    }
-}
-```
-
-## 3. Implement a Producer-Consumer Pattern
-Implement a producer-consumer pattern using Java's built-in concurrency utilities. Your solution should:
-
-1. Create a bounded buffer shared between producers and consumers
-2. Implement producer threads that add items to the buffer
-3. Implement consumer threads that remove items from the buffer
-4. Ensure thread safety and prevent race conditions
-5. Handle the case when the buffer is full (producers wait) or empty (consumers wait)
-
-Example solution:
+**Hard Examples:**
 
 ```java
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
+import java.time.LocalDate;
+import java.time.Month;
 
-public class ProducerConsumerExample {
-    private static final int BUFFER_SIZE = 5;
-    
+public class AdvancedCollectorsExample {
     public static void main(String[] args) {
-        // Shared buffer
-        BlockingQueue<Integer> buffer = new LinkedBlockingQueue<>(BUFFER_SIZE);
+        List<Employee> employees = Arrays.asList(
+            new Employee(1, "Alice", "Engineering", "Senior Developer", 120000, LocalDate.of(2018, Month.MARCH, 15), "New York"),
+            new Employee(2, "Bob", "Engineering", "Developer", 85000, LocalDate.of(2020, Month.JULY, 1), "San Francisco"),
+            new Employee(3, "Charlie", "Marketing", "Marketing Manager", 95000, LocalDate.of(2019, Month.JANUARY, 10), "Chicago"),
+            new Employee(4, "Diana", "Sales", "Sales Representative", 75000, LocalDate.of(2021, Month.APRIL, 5), "New York"),
+            new Employee(5, "Eva", "Engineering", "Lead Architect", 150000, LocalDate.of(2017, Month.OCTOBER, 20), "San Francisco"),
+            new Employee(6, "Frank", "HR", "HR Manager", 90000, LocalDate.of(2019, Month.MAY, 15), "Chicago"),
+            new Employee(7, "Grace", "Engineering", "Developer", 82000, LocalDate.of(2020, Month.AUGUST, 10), "New York"),
+            new Employee(8, "Henry", "Sales", "Sales Director", 130000, LocalDate.of(2018, Month.FEBRUARY, 25), "Chicago"),
+            new Employee(9, "Ivy", "Marketing", "Marketing Specialist", 70000, LocalDate.of(2021, Month.MARCH, 1), "San Francisco"),
+            new Employee(10, "Jack", "Engineering", "QA Engineer", 88000, LocalDate.of(2019, Month.NOVEMBER, 12), "New York")
+        );
         
-        // Create producer and consumer threads
-        Thread producerThread = new Thread(new Producer(buffer));
-        Thread consumerThread = new Thread(new Consumer(buffer));
+        // Challenge 1: groupingBy with complex downstream collectors
+        // Group employees by department, then calculate average salary and find highest paid employee
+        Map<String, Map<String, Object>> departmentStats = employees.stream()
+            .collect(Collectors.groupingBy(
+                Employee::getDepartment,
+                Collectors.collectingAndThen(
+                    Collectors.toList(),
+                    deptEmployees -> {
+                        DoubleSummaryStatistics salaryStats = deptEmployees.stream()
+                            .collect(Collectors.summarizingDouble(Employee::getSalary));
+                            
+                        Employee highestPaid = deptEmployees.stream()
+                            .max(Comparator.comparing(Employee::getSalary))
+                            .orElse(null);
+                            
+                        Map<String, Object> stats = new HashMap<>();
+                        stats.put("averageSalary", salaryStats.getAverage());
+                        stats.put("totalSalary", salaryStats.getSum());
+                        stats.put("highestPaidEmployee", highestPaid);
+                        stats.put("employeeCount", deptEmployees.size());
+                        return stats;
+                    }
+                )
+            ));
+            
+        System.out.println("Department Statistics:");
+        departmentStats.forEach((dept, stats) -> {
+            System.out.println("\n" + dept + ":");
+            System.out.println("  Average Salary: $" + String.format("%.2f", (Double) stats.get("averageSalary")));
+            System.out.println("  Total Salary Budget: $" + String.format("%.2f", (Double) stats.get("totalSalary")));
+            System.out.println("  Employee Count: " + stats.get("employeeCount"));
+            Employee topEarner = (Employee) stats.get("highestPaidEmployee");
+            System.out.println("  Highest Paid: " + topEarner.getName() + " (" + topEarner.getTitle() + ") - $" + topEarner.getSalary());
+        });
         
-        // Start threads
-        producerThread.start();
-        consumerThread.start();
+        // Challenge 2: partitioningBy with complex criteria and downstream collectors
+        // Partition employees into senior (hired before 2020) and junior groups
+        // Then group by location and calculate statistics
+        Map<Boolean, Map<String, DoubleSummaryStatistics>> experienceLocationStats = employees.stream()
+            .collect(Collectors.partitioningBy(
+                e -> e.getHireDate().isBefore(LocalDate.of(2020, 1, 1)),
+                Collectors.groupingBy(
+                    Employee::getLocation,
+                    Collectors.summarizingDouble(Employee::getSalary)
+                )
+            ));
+            
+        System.out.println("\nExperience and Location Statistics:");
+        System.out.println("\nSenior Employees (hired before 2020):");
+        experienceLocationStats.get(true).forEach((location, stats) -> {
+            System.out.println("  " + location + ": " + stats.getCount() + " employees, Avg: $" + 
+                String.format("%.2f", stats.getAverage()) + ", Range: $" + (int)stats.getMin() + "-$" + (int)stats.getMax());
+        });
+        
+        System.out.println("\nJunior Employees (hired 2020 or later):");
+        experienceLocationStats.get(false).forEach((location, stats) -> {
+            System.out.println("  " + location + ": " + stats.getCount() + " employees, Avg: $" + 
+                String.format("%.2f", stats.getAverage()) + ", Range: $" + (int)stats.getMin() + "-$" + (int)stats.getMax());
+        });
+        
+        // Challenge 3: mapping with multiple levels of transformation
+        // For each department, map employees to their titles and count occurrences
+        Map<String, Map<String, Long>> titleDistribution = employees.stream()
+            .collect(Collectors.groupingBy(
+                Employee::getDepartment,
+                Collectors.mapping(
+                    Employee::getTitle,
+                    Collectors.counting()
+                )
+            ));
+            
+        System.out.println("\nTitle Distribution by Department:");
+        titleDistribution.forEach((dept, titles) -> {
+            System.out.println("\n" + dept + " Department:");
+            titles.forEach((title, count) -> {
+                System.out.println("  " + title + ": " + count);
+            });
+        });
+        
+        // Challenge 4: teeing collector (Java 12+)
+        // Calculate both the average salary and the total salary budget in one pass
+        Map<String, Object> overallStats = employees.stream()
+            .collect(Collectors.teeing(
+                Collectors.averagingDouble(Employee::getSalary),
+                Collectors.summingDouble(Employee::getSalary),
+                (avg, sum) -> {
+                    Map<String, Object> stats = new HashMap<>();
+                    stats.put("averageSalary", avg);
+                    stats.put("totalSalaryBudget", sum);
+                    stats.put("estimatedHeadcount", sum / avg);
+                    return stats;
+                }
+            ));
+            
+        System.out.println("\nOverall Company Statistics:");
+        System.out.println("  Average Salary: $" + String.format("%.2f", (Double) overallStats.get("averageSalary")));
+        System.out.println("  Total Salary Budget: $" + String.format("%.2f", (Double) overallStats.get("totalSalaryBudget")));
+        System.out.println("  Estimated Optimal Headcount: " + String.format("%.1f", (Double) overallStats.get("estimatedHeadcount")));
+        
+        // Challenge 5: Complex multi-level grouping with filtering
+        // Group employees by location, then by department, and include only those with salary > 90000
+        Map<String, Map<String, List<Employee>>> highEarnersMap = employees.stream()
+            .filter(e -> e.getSalary() > 90000)
+            .collect(Collectors.groupingBy(
+                Employee::getLocation,
+                Collectors.groupingBy(Employee::getDepartment)
+            ));
+            
+        System.out.println("\nHigh Earners ($90k+) by Location and Department:");
+        highEarnersMap.forEach((location, deptMap) -> {
+            System.out.println("\n" + location + ":");
+            deptMap.forEach((dept, emps) -> {
+                System.out.println("  " + dept + " Department:");
+                emps.forEach(e -> {
+                    System.out.println("    " + e.getName() + " - " + e.getTitle() + " ($" + e.getSalary() + ")");
+                });
+            });
+        });
     }
     
-    static class Producer implements Runnable {
-        private final BlockingQueue<Integer> buffer;
+    static class Employee {
+        private final int id;
+        private final String name;
+        private final String department;
+        private final String title;
+        private final double salary;
+        private final LocalDate hireDate;
+        private final String location;
         
-        Producer(BlockingQueue<Integer> buffer) {
-            this.buffer = buffer;
+        public Employee(int id, String name, String department, String title, 
+                       double salary, LocalDate hireDate, String location) {
+            this.id = id;
+            this.name = name;
+            this.department = department;
+            this.title = title;
+            this.salary = salary;
+            this.hireDate = hireDate;
+            this.location = location;
         }
+        
+        public int getId() { return id; }
+        public String getName() { return name; }
+        public String getDepartment() { return department; }
+        public String getTitle() { return title; }
+        public double getSalary() { return salary; }
+        public LocalDate getHireDate() { return hireDate; }
+        public String getLocation() { return location; }
         
         @Override
-        public void run() {
-            try {
-                for (int i = 0; i < 10; i++) {
-                    System.out.println("Producing: " + i);
-                    // put() will block if the buffer is full
-                    buffer.put(i);
-                    Thread.sleep(100); // Simulate work
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+        public String toString() {
+            return "Employee{" +
+                   "id=" + id +
+                   ", name='" + name + '\'' +
+                   ", department='" + department + '\'' +
+                   ", title='" + title + '\'' +
+                   ", salary=" + salary +
+                   ", hireDate=" + hireDate +
+                   ", location='" + location + '\'' +
+                   '}';
         }
-    }
-    
-    static class Consumer implements Runnable {
-        private final BlockingQueue<Integer> buffer;
-        
-        Consumer(BlockingQueue<Integer> buffer) {
-            this.buffer = buffer;
-        }
-        
-        @Override
-        public void run() {
-            try {
-                while (true) {
-                    // take() will block if the buffer is empty
-                    int value = buffer.take();
-                    System.out.println("Consuming: " + value);
-                    Thread.sleep(200); // Simulate work
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
-    }
-}
-```
-
-## 4. Implement a Binary Search Tree
-Implement a Binary Search Tree (BST) in Java with the following operations:
-
-1. Insert a value
-2. Search for a value
-3. Delete a value
-4. Perform in-order traversal
-5. Find the minimum and maximum values
-
-Example solution:
-
-```java
-public class BinarySearchTree {
-    private Node root;
-    
-    private static class Node {
-        int value;
-        Node left;
-        Node right;
-        
-        Node(int value) {
-            this.value = value;
-            this.left = null;
-            this.right = null;
-        }
-    }
-    
-    public void insert(int value) {
-        root = insertRec(root, value);
-    }
-    
-    private Node insertRec(Node root, int value) {
-        if (root == null) {
-            root = new Node(value);
-            return root;
-        }
-        
-        if (value < root.value) {
-            root.left = insertRec(root.left, value);
-        } else if (value > root.value) {
-            root.right = insertRec(root.right, value);
-        }
-        
-        return root;
-    }
-    
-    public boolean search(int value) {
-        return searchRec(root, value);
-    }
-    
-    private boolean searchRec(Node root, int value) {
-        if (root == null) {
-            return false;
-        }
-        
-        if (root.value == value) {
-            return true;
-        }
-        
-        if (value < root.value) {
-            return searchRec(root.left, value);
-        } else {
-            return searchRec(root.right, value);
-        }
-    }
-    
-    public void delete(int value) {
-        root = deleteRec(root, value);
-    }
-    
-    private Node deleteRec(Node root, int value) {
-        if (root == null) {
-            return null;
-        }
-        
-        if (value < root.value) {
-            root.left = deleteRec(root.left, value);
-        } else if (value > root.value) {
-            root.right = deleteRec(root.right, value);
-        } else {
-            // Node with only one child or no child
-            if (root.left == null) {
-                return root.right;
-            } else if (root.right == null) {
-                return root.left;
-            }
-            
-            // Node with two children
-            root.value = minValue(root.right);
-            
-            // Delete the inorder successor
-            root.right = deleteRec(root.right, root.value);
-        }
-        
-        return root;
-    }
-    
-    private int minValue(Node root) {
-        int minValue = root.value;
-        while (root.left != null) {
-            minValue = root.left.value;
-            root = root.left;
-        }
-        return minValue;
-    }
-    
-    public void inOrderTraversal() {
-        inOrderRec(root);
-        System.out.println();
-    }
-    
-    private void inOrderRec(Node root) {
-        if (root != null) {
-            inOrderRec(root.left);
-            System.out.print(root.value + " ");
-            inOrderRec(root.right);
-        }
-    }
-    
-    public int findMin() {
-        if (root == null) {
-            throw new IllegalStateException("Tree is empty");
-        }
-        
-        Node current = root;
-        while (current.left != null) {
-            current = current.left;
-        }
-        
-        return current.value;
-    }
-    
-    public int findMax() {
-        if (root == null) {
-            throw new IllegalStateException("Tree is empty");
-        }
-        
-        Node current = root;
-        while (current.right != null) {
-            current = current.right;
-        }
-        
-        return current.value;
-    }
-}
-```
-
-## 5. Implement a Custom Cache with LRU Eviction Policy
-Implement a simple Least Recently Used (LRU) cache in Java with the following features:
-
-1. Fixed capacity
-2. O(1) time complexity for get and put operations
-3. Automatic eviction of least recently used items when capacity is reached
-4. Thread safety (optional bonus)
-
-Example solution:
-
-```java
-import java.util.HashMap;
-import java.util.Map;
-
-public class LRUCache<K, V> {
-    private final int capacity;
-    private final Map<K, Node<K, V>> cache;
-    private Node<K, V> head;
-    private Node<K, V> tail;
-    
-    private static class Node<K, V> {
-        K key;
-        V value;
-        Node<K, V> prev;
-        Node<K, V> next;
-        
-        Node(K key, V value) {
-            this.key = key;
-            this.value = value;
-        }
-    }
-    
-    public LRUCache(int capacity) {
-        this.capacity = capacity;
-        this.cache = new HashMap<>();
-        this.head = null;
-        this.tail = null;
-    }
-    
-    public V get(K key) {
-        Node<K, V> node = cache.get(key);
-        if (node == null) {
-            return null;
-        }
-        
-        // Move accessed node to the front (most recently used)
-        moveToFront(node);
-        return node.value;
-    }
-    
-    public void put(K key, V value) {
-        Node<K, V> existingNode = cache.get(key);
-        
-        if (existingNode != null) {
-            // Update existing node
-            existingNode.value = value;
-            moveToFront(existingNode);
-            return;
-        }
-        
-        // Create new node
-        Node<K, V> newNode = new Node<>(key, value);
-        
-        // Check if cache is at capacity
-        if (cache.size() >= capacity) {
-            // Remove least recently used item (tail)
-            cache.remove(tail.key);
-            removeTail();
-        }
-        
-        // Add new node to front
-        addToFront(newNode);
-        cache.put(key, newNode);
-    }
-    
-    private void moveToFront(Node<K, V> node) {
-        if (node == head) {
-            return; // Already at front
-        }
-        
-        // Remove from current position
-        if (node.prev != null) {
-            node.prev.next = node.next;
-        }
-        
-        if (node.next != null) {
-            node.next.prev = node.prev;
-        }
-        
-        if (node == tail) {
-            tail = node.prev;
-        }
-        
-        // Add to front
-        node.next = head;
-        node.prev = null;
-        
-        if (head != null) {
-            head.prev = node;
-        }
-        
-        head = node;
-        
-        if (tail == null) {
-            tail = node;
-        }
-    }
-    
-    private void addToFront(Node<K, V> node) {
-        node.next = head;
-        node.prev = null;
-        
-        if (head != null) {
-            head.prev = node;
-        }
-        
-        head = node;
-        
-        if (tail == null) {
-            tail = node;
-        }
-    }
-    
-    private void removeTail() {
-        if (tail == null) {
-            return;
-        }
-        
-        if (tail.prev != null) {
-            tail.prev.next = null;
-            tail = tail.prev;
-        } else {
-            // Only one node in the list
-            head = null;
-            tail = null;
-        }
-    }
-    
-    public int size() {
-        return cache.size();
-    }
-}
-```
-
-## 6. Comparing Objects and Their Use in HashMap/HashSet
-
-```java
-class Person {
-    private String name;
-    private int age;
-
-    public Person(String name, int age) {
-        this.name = name;
-        this.age = age;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Person person = (Person) o;
-        return age == person.age && name.equals(person.name);
-    }
-
-    @Override
-    public int hashCode() {
-        return name.hashCode() * 31 + age;
-    }
-
-    @Override
-    public String toString() {
-        return name + ", " + age;
-    }
-}
-
-public class CompareDemo {
-    public static void main(String[] args) {
-        Person p1 = new Person("Alice", 30);
-        Person p2 = new Person("Alice", 30);
-        Person p3 = new Person("Bob", 25);
-
-        // Direct object comparison
-        System.out.println("p1.equals(p2): " + p1.equals(p2)); // true
-        System.out.println("p1 == p2: " + (p1 == p2)); // false
-
-        // HashSet demonstration
-        java.util.HashSet<Person> set = new java.util.HashSet<>();
-        set.add(p1);
-        set.add(p2);
-        set.add(p3);
-        System.out.println("HashSet: " + set); // Only two unique persons
-
-        // HashMap demonstration
-        java.util.HashMap<Person, String> map = new java.util.HashMap<>();
-        map.put(p1, "First");
-        map.put(p2, "Second"); // Overwrites value for same logical key
-        map.put(p3, "Third");
-        System.out.println("HashMap: " + map);
     }
 }
 ```
