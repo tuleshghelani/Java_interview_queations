@@ -1291,15 +1291,78 @@ public class JoiningExample {
 ### 7.7 Advanced Collector Functions
 
 **Theory:**
-Collectors are a powerful feature of the Stream API that allow for complex reduction operations. Here we'll explore some of the most powerful collector functions:
+Collectors are a powerful feature of the Stream API that allow for complex reduction operations. They transform stream elements into different forms of collections or single values. Here we'll explore the most powerful collector functions in depth:
 
-1. **`groupingBy()`** - Groups elements into a Map according to a classification function
-2. **`partitioningBy()`** - Special case of groupingBy that partitions elements into true/false groups
-3. **`counting()`** - Counts the number of elements
-4. **`summarizingInt/Long/Double()`** - Produces statistics like count, sum, min, max, average
-5. **`averagingInt/Long/Double()`** - Calculates the arithmetic mean
-6. **`mapping()`** - Adapts a collector to operate on the results of applying a mapping function
-7. **`teeing()`** - Forwards input to two collectors and merges their results (Java 12+)
+1. **`groupingBy()`**
+   - Groups elements into a Map according to a classification function
+   - Three overloaded forms:
+     - `groupingBy(Function classifier)`
+     - `groupingBy(Function classifier, Collector downstream)`
+     - `groupingBy(Function classifier, Supplier mapFactory, Collector downstream)`
+   - Allows multi-level grouping when combined with other collectors
+   - Common use cases: categorizing data, creating hierarchical structures
+
+2. **`partitioningBy()`**
+   - Special case of groupingBy that partitions elements into true/false groups
+   - Two overloaded forms:
+     - `partitioningBy(Predicate predicate)`
+     - `partitioningBy(Predicate predicate, Collector downstream)`
+   - More efficient than groupingBy for boolean classification
+   - Always returns a Map with exactly two keys: true and false
+
+3. **`counting()`**
+   - Counts the number of elements
+   - Often used as a downstream collector with groupingBy or partitioningBy
+   - Returns a Long value
+
+4. **`summarizingInt/Long/Double()`**
+   - Produces statistics like count, sum, min, max, average in a single pass
+   - Returns IntSummaryStatistics, LongSummaryStatistics, or DoubleSummaryStatistics
+   - Efficient for computing multiple statistics simultaneously
+
+5. **`averagingInt/Long/Double()`**
+   - Calculates the arithmetic mean of numeric values
+   - Returns a Double value
+
+6. **`mapping()`**
+   - Adapts a collector to operate on the results of applying a mapping function
+   - Signature: `mapping(Function mapper, Collector downstream)`
+   - Allows transformation before collection
+
+7. **`filtering()`** (Java 9+)
+   - Adapts a collector to operate only on elements that match a predicate
+   - Signature: `filtering(Predicate predicate, Collector downstream)`
+   - Allows filtering within a collector operation
+
+8. **`flatMapping()`** (Java 9+)
+   - Similar to mapping but flattens nested collections
+   - Signature: `flatMapping(Function<? super T, ? extends Stream<? extends U>> mapper, Collector downstream)`
+   - Useful for handling nested collections in collectors
+
+9. **`collectingAndThen()`**
+   - Performs an additional finishing transformation after collection
+   - Signature: `collectingAndThen(Collector downstream, Function finisher)`
+   - Useful for post-processing collection results
+
+10. **`toMap()`** / **`toConcurrentMap()`**
+    - Creates a Map from stream elements
+    - Multiple overloaded forms to handle key/value mapping and merge functions
+    - toConcurrentMap creates a thread-safe ConcurrentHashMap
+
+11. **`reducing()`**
+    - Performs a reduction operation
+    - Three overloaded forms similar to Stream.reduce()
+    - Useful as a downstream collector
+
+12. **`teeing()`** (Java 12+)
+    - Forwards input to two collectors and merges their results
+    - Signature: `teeing(Collector downstream1, Collector downstream2, BiFunction merger)`
+    - Allows processing the same data in two different ways simultaneously
+
+13. **`groupingByConcurrent()`**
+    - Concurrent version of groupingBy that returns a ConcurrentMap
+    - Better performance in parallel streams
+    - Same overloaded forms as groupingBy
 
 **Hard Examples:**
 
@@ -1308,142 +1371,601 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.time.LocalDate;
 import java.time.Month;
+import java.time.Year;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public class AdvancedCollectorsExample {
     public static void main(String[] args) {
         List<Employee> employees = Arrays.asList(
-            new Employee(1, "Alice", "Engineering", "Senior Developer", 120000, LocalDate.of(2018, Month.MARCH, 15), "New York"),
-            new Employee(2, "Bob", "Engineering", "Developer", 85000, LocalDate.of(2020, Month.JULY, 1), "San Francisco"),
-            new Employee(3, "Charlie", "Marketing", "Marketing Manager", 95000, LocalDate.of(2019, Month.JANUARY, 10), "Chicago"),
-            new Employee(4, "Diana", "Sales", "Sales Representative", 75000, LocalDate.of(2021, Month.APRIL, 5), "New York"),
-            new Employee(5, "Eva", "Engineering", "Lead Architect", 150000, LocalDate.of(2017, Month.OCTOBER, 20), "San Francisco"),
-            new Employee(6, "Frank", "HR", "HR Manager", 90000, LocalDate.of(2019, Month.MAY, 15), "Chicago"),
-            new Employee(7, "Grace", "Engineering", "Developer", 82000, LocalDate.of(2020, Month.AUGUST, 10), "New York"),
-            new Employee(8, "Henry", "Sales", "Sales Director", 130000, LocalDate.of(2018, Month.FEBRUARY, 25), "Chicago"),
-            new Employee(9, "Ivy", "Marketing", "Marketing Specialist", 70000, LocalDate.of(2021, Month.MARCH, 1), "San Francisco"),
-            new Employee(10, "Jack", "Engineering", "QA Engineer", 88000, LocalDate.of(2019, Month.NOVEMBER, 12), "New York")
+            new Employee(1, "Alice", "Engineering", "Senior Developer", 120000, LocalDate.of(2018, Month.MARCH, 15), "New York", Arrays.asList("Java", "Spring", "Kubernetes")),
+            new Employee(2, "Bob", "Engineering", "Developer", 85000, LocalDate.of(2020, Month.JULY, 1), "San Francisco", Arrays.asList("JavaScript", "React", "Node.js")),
+            new Employee(3, "Charlie", "Marketing", "Marketing Manager", 95000, LocalDate.of(2019, Month.JANUARY, 10), "Chicago", Arrays.asList("SEO", "Content Strategy", "Analytics")),
+            new Employee(4, "Diana", "Sales", "Sales Representative", 75000, LocalDate.of(2021, Month.APRIL, 5), "New York", Arrays.asList("CRM", "Negotiation", "Presentation")),
+            new Employee(5, "Eva", "Engineering", "Lead Architect", 150000, LocalDate.of(2017, Month.OCTOBER, 20), "San Francisco", Arrays.asList("Java", "AWS", "Microservices", "System Design")),
+            new Employee(6, "Frank", "HR", "HR Manager", 90000, LocalDate.of(2019, Month.MAY, 15), "Chicago", Arrays.asList("Recruitment", "Employee Relations", "Compliance")),
+            new Employee(7, "Grace", "Engineering", "Developer", 82000, LocalDate.of(2020, Month.AUGUST, 10), "New York", Arrays.asList("Python", "Django", "Machine Learning")),
+            new Employee(8, "Henry", "Sales", "Sales Director", 130000, LocalDate.of(2018, Month.FEBRUARY, 25), "Chicago", Arrays.asList("Strategy", "Team Management", "Client Relations")),
+            new Employee(9, "Ivy", "Marketing", "Marketing Specialist", 70000, LocalDate.of(2021, Month.MARCH, 1), "San Francisco", Arrays.asList("Social Media", "Content Creation", "Campaign Management")),
+            new Employee(10, "Jack", "Engineering", "QA Engineer", 88000, LocalDate.of(2019, Month.NOVEMBER, 12), "New York", Arrays.asList("Testing", "Automation", "Quality Assurance")),
+            new Employee(11, "Karen", "Product", "Product Manager", 115000, LocalDate.of(2018, Month.JUNE, 5), "San Francisco", Arrays.asList("Product Strategy", "Roadmap Planning", "User Research")),
+            new Employee(12, "Leo", "Engineering", "DevOps Engineer", 105000, LocalDate.of(2019, Month.AUGUST, 15), "Chicago", Arrays.asList("Docker", "Jenkins", "CI/CD", "Kubernetes"))
         );
         
-        // Challenge 1: groupingBy with complex downstream collectors
-        // Group employees by department, then calculate average salary and find highest paid employee
-        Map<String, Map<String, Object>> departmentStats = employees.stream()
-            .collect(Collectors.groupingBy(
-                Employee::getDepartment,
-                Collectors.collectingAndThen(
-                    Collectors.toList(),
-                    deptEmployees -> {
-                        DoubleSummaryStatistics salaryStats = deptEmployees.stream()
-                            .collect(Collectors.summarizingDouble(Employee::getSalary));
-                            
-                        Employee highestPaid = deptEmployees.stream()
-                            .max(Comparator.comparing(Employee::getSalary))
-                            .orElse(null);
-                            
-                        Map<String, Object> stats = new HashMap<>();
-                        stats.put("averageSalary", salaryStats.getAverage());
-                        stats.put("totalSalary", salaryStats.getSum());
-                        stats.put("highestPaidEmployee", highestPaid);
-                        stats.put("employeeCount", deptEmployees.size());
-                        return stats;
-                    }
-                )
-            ));
+        System.out.println("========== ADVANCED COLLECTOR EXAMPLES ==========\n");
+        
+        // 1. GROUPING BY EXAMPLES
+        System.out.println("1. GROUPING BY EXAMPLES\n");
+        
+        // Simple groupingBy
+        Map<String, List<Employee>> byDepartment = employees.stream()
+            .collect(Collectors.groupingBy(Employee::getDepartment));
             
-        System.out.println("Department Statistics:");
-        departmentStats.forEach((dept, stats) -> {
-            System.out.println("\n" + dept + ":");
-            System.out.println("  Average Salary: $" + String.format("%.2f", (Double) stats.get("averageSalary")));
-            System.out.println("  Total Salary Budget: $" + String.format("%.2f", (Double) stats.get("totalSalary")));
-            System.out.println("  Employee Count: " + stats.get("employeeCount"));
-            Employee topEarner = (Employee) stats.get("highestPaidEmployee");
-            System.out.println("  Highest Paid: " + topEarner.getName() + " (" + topEarner.getTitle() + ") - $" + topEarner.getSalary());
+        System.out.println("1.1 Simple groupingBy by department:");
+        byDepartment.forEach((dept, emps) -> {
+            System.out.println("\n" + dept + " Department: " + emps.size() + " employees");
+            emps.forEach(e -> System.out.println("  - " + e.getName() + ", " + e.getTitle()));
         });
         
-        // Challenge 2: partitioningBy with complex criteria and downstream collectors
-        // Partition employees into senior (hired before 2020) and junior groups
-        // Then group by location and calculate statistics
-        Map<Boolean, Map<String, DoubleSummaryStatistics>> experienceLocationStats = employees.stream()
-            .collect(Collectors.partitioningBy(
-                e -> e.getHireDate().isBefore(LocalDate.of(2020, 1, 1)),
-                Collectors.groupingBy(
-                    Employee::getLocation,
-                    Collectors.summarizingDouble(Employee::getSalary)
-                )
-            ));
-            
-        System.out.println("\nExperience and Location Statistics:");
-        System.out.println("\nSenior Employees (hired before 2020):");
-        experienceLocationStats.get(true).forEach((location, stats) -> {
-            System.out.println("  " + location + ": " + stats.getCount() + " employees, Avg: $" + 
-                String.format("%.2f", stats.getAverage()) + ", Range: $" + (int)stats.getMin() + "-$" + (int)stats.getMax());
-        });
-        
-        System.out.println("\nJunior Employees (hired 2020 or later):");
-        experienceLocationStats.get(false).forEach((location, stats) -> {
-            System.out.println("  " + location + ": " + stats.getCount() + " employees, Avg: $" + 
-                String.format("%.2f", stats.getAverage()) + ", Range: $" + (int)stats.getMin() + "-$" + (int)stats.getMax());
-        });
-        
-        // Challenge 3: mapping with multiple levels of transformation
-        // For each department, map employees to their titles and count occurrences
-        Map<String, Map<String, Long>> titleDistribution = employees.stream()
-            .collect(Collectors.groupingBy(
-                Employee::getDepartment,
-                Collectors.mapping(
-                    Employee::getTitle,
-                    Collectors.counting()
-                )
-            ));
-            
-        System.out.println("\nTitle Distribution by Department:");
-        titleDistribution.forEach((dept, titles) -> {
-            System.out.println("\n" + dept + " Department:");
-            titles.forEach((title, count) -> {
-                System.out.println("  " + title + ": " + count);
-            });
-        });
-        
-        // Challenge 4: teeing collector (Java 12+)
-        // Calculate both the average salary and the total salary budget in one pass
-        Map<String, Object> overallStats = employees.stream()
-            .collect(Collectors.teeing(
-                Collectors.averagingDouble(Employee::getSalary),
-                Collectors.summingDouble(Employee::getSalary),
-                (avg, sum) -> {
-                    Map<String, Object> stats = new HashMap<>();
-                    stats.put("averageSalary", avg);
-                    stats.put("totalSalaryBudget", sum);
-                    stats.put("estimatedHeadcount", sum / avg);
-                    return stats;
-                }
-            ));
-            
-        System.out.println("\nOverall Company Statistics:");
-        System.out.println("  Average Salary: $" + String.format("%.2f", (Double) overallStats.get("averageSalary")));
-        System.out.println("  Total Salary Budget: $" + String.format("%.2f", (Double) overallStats.get("totalSalaryBudget")));
-        System.out.println("  Estimated Optimal Headcount: " + String.format("%.1f", (Double) overallStats.get("estimatedHeadcount")));
-        
-        // Challenge 5: Complex multi-level grouping with filtering
-        // Group employees by location, then by department, and include only those with salary > 90000
-        Map<String, Map<String, List<Employee>>> highEarnersMap = employees.stream()
-            .filter(e -> e.getSalary() > 90000)
+        // Multi-level groupingBy
+        Map<String, Map<String, List<Employee>>> byLocationAndDepartment = employees.stream()
             .collect(Collectors.groupingBy(
                 Employee::getLocation,
                 Collectors.groupingBy(Employee::getDepartment)
             ));
             
-        System.out.println("\nHigh Earners ($90k+) by Location and Department:");
-        highEarnersMap.forEach((location, deptMap) -> {
+        System.out.println("\n1.2 Multi-level groupingBy by location and department:");
+        byLocationAndDepartment.forEach((location, deptMap) -> {
             System.out.println("\n" + location + ":");
             deptMap.forEach((dept, emps) -> {
-                System.out.println("  " + dept + " Department:");
-                emps.forEach(e -> {
-                    System.out.println("    " + e.getName() + " - " + e.getTitle() + " ($" + e.getSalary() + ")");
-                });
+                System.out.println("  " + dept + " Department: " + emps.size() + " employees");
+                emps.forEach(e -> System.out.println("    - " + e.getName() + ", " + e.getTitle()));
             });
         });
+        
+        // GroupingBy with custom downstream collector
+        Map<String, DoubleSummaryStatistics> salaryStatsByDepartment = employees.stream()
+            .collect(Collectors.groupingBy(
+                Employee::getDepartment,
+                Collectors.summarizingDouble(Employee::getSalary)
+            ));
+            
+        System.out.println("\n1.3 GroupingBy with summarizingDouble downstream:");
+        salaryStatsByDepartment.forEach((dept, stats) -> {
+            System.out.println(dept + " Department:");
+            System.out.println("  Count: " + stats.getCount());
+            System.out.println("  Sum: $" + String.format("%.2f", stats.getSum()));
+            System.out.println("  Average: $" + String.format("%.2f", stats.getAverage()));
+            System.out.println("  Min: $" + String.format("%.2f", stats.getMin()));
+            System.out.println("  Max: $" + String.format("%.2f", stats.getMax()));
+        });
+        
+        // 2. PARTITIONING BY EXAMPLES
+        System.out.println("\n2. PARTITIONING BY EXAMPLES\n");
+        
+        // Simple partitioningBy
+        Map<Boolean, List<Employee>> partitionedBySalary = employees.stream()
+            .collect(Collectors.partitioningBy(e -> e.getSalary() >= 100000));
+            
+        System.out.println("2.1 Simple partitioningBy by salary threshold (≥$100k):");
+        System.out.println("\nHigh earners (≥$100k): " + partitionedBySalary.get(true).size() + " employees");
+        partitionedBySalary.get(true).forEach(e -> 
+            System.out.println("  - " + e.getName() + ", " + e.getTitle() + ", $" + e.getSalary()));
+            
+        System.out.println("\nOther employees (<$100k): " + partitionedBySalary.get(false).size() + " employees");
+        partitionedBySalary.get(false).forEach(e -> 
+            System.out.println("  - " + e.getName() + ", " + e.getTitle() + ", $" + e.getSalary()));
+        
+        // PartitioningBy with downstream collector
+        Map<Boolean, Map<String, List<Employee>>> seniorityByDepartment = employees.stream()
+            .collect(Collectors.partitioningBy(
+                e -> e.getHireDate().isBefore(LocalDate.of(2020, 1, 1)),
+                Collectors.groupingBy(Employee::getDepartment)
+            ));
+            
+        System.out.println("\n2.2 PartitioningBy with groupingBy downstream:");
+        System.out.println("\nSenior employees (hired before 2020) by department:");
+        seniorityByDepartment.get(true).forEach((dept, emps) -> {
+            System.out.println("  " + dept + ": " + emps.size() + " employees");
+            emps.forEach(e -> System.out.println("    - " + e.getName() + ", hired " + e.getHireDate()));
+        });
+        
+        System.out.println("\nJunior employees (hired 2020 or later) by department:");
+        seniorityByDepartment.get(false).forEach((dept, emps) -> {
+            System.out.println("  " + dept + ": " + emps.size() + " employees");
+            emps.forEach(e -> System.out.println("    - " + e.getName() + ", hired " + e.getHireDate()));
+        });
+        
+        // 3. COUNTING EXAMPLES
+        System.out.println("\n3. COUNTING EXAMPLES\n");
+        
+        // Simple counting
+        long totalEmployees = employees.stream().collect(Collectors.counting());
+        System.out.println("3.1 Simple counting: " + totalEmployees + " total employees");
+        
+        // Counting with groupingBy
+        Map<String, Long> employeeCountByLocation = employees.stream()
+            .collect(Collectors.groupingBy(
+                Employee::getLocation,
+                Collectors.counting()
+            ));
+            
+        System.out.println("\n3.2 Counting with groupingBy by location:");
+        employeeCountByLocation.forEach((location, count) -> 
+            System.out.println("  " + location + ": " + count + " employees"));
+        
+        // 4. SUMMARIZING EXAMPLES
+        System.out.println("\n4. SUMMARIZING EXAMPLES\n");
+        
+        // SummarizingDouble
+        DoubleSummaryStatistics overallSalaryStats = employees.stream()
+            .collect(Collectors.summarizingDouble(Employee::getSalary));
+            
+        System.out.println("4.1 SummarizingDouble for salaries:");
+        System.out.println("  Count: " + overallSalaryStats.getCount());
+        System.out.println("  Sum: $" + String.format("%.2f", overallSalaryStats.getSum()));
+        System.out.println("  Average: $" + String.format("%.2f", overallSalaryStats.getAverage()));
+        System.out.println("  Min: $" + String.format("%.2f", overallSalaryStats.getMin()));
+        System.out.println("  Max: $" + String.format("%.2f", overallSalaryStats.getMax()));
+        
+        // SummarizingInt with mapping
+        Map<String, IntSummaryStatistics> skillCountByDepartment = employees.stream()
+            .collect(Collectors.groupingBy(
+                Employee::getDepartment,
+                Collectors.summarizingInt(e -> e.getSkills().size())
+            ));
+            
+        System.out.println("\n4.2 SummarizingInt for skill counts by department:");
+        skillCountByDepartment.forEach((dept, stats) -> {
+            System.out.println("  " + dept + " Department:");
+            System.out.println("    Average skills per employee: " + String.format("%.1f", stats.getAverage()));
+            System.out.println("    Range: " + stats.getMin() + "-" + stats.getMax() + " skills");
+        });
+        
+        // 5. AVERAGING EXAMPLES
+        System.out.println("\n5. AVERAGING EXAMPLES\n");
+        
+        // Simple averaging
+        double averageSalary = employees.stream()
+            .collect(Collectors.averagingDouble(Employee::getSalary));
+            
+        System.out.println("5.1 Simple averagingDouble: Average salary is $" + 
+            String.format("%.2f", averageSalary));
+        
+        // Averaging with groupingBy
+        Map<Integer, Double> avgSalaryByYearHired = employees.stream()
+            .collect(Collectors.groupingBy(
+                e -> e.getHireDate().getYear(),
+                Collectors.averagingDouble(Employee::getSalary)
+            ));
+            
+        System.out.println("\n5.2 AveragingDouble with groupingBy by hire year:");
+        avgSalaryByYearHired.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .forEach(entry -> System.out.println("  " + entry.getKey() + ": $" + 
+                String.format("%.2f", entry.getValue())));
+        
+        // 6. MAPPING EXAMPLES
+        System.out.println("\n6. MAPPING EXAMPLES\n");
+        
+        // Mapping with joining
+        Map<String, String> employeeNamesByDept = employees.stream()
+            .collect(Collectors.groupingBy(
+                Employee::getDepartment,
+                Collectors.mapping(
+                    Employee::getName,
+                    Collectors.joining(", ")
+                )
+            ));
+            
+        System.out.println("6.1 Mapping with joining by department:");
+        employeeNamesByDept.forEach((dept, names) -> 
+            System.out.println("  " + dept + ": " + names));
+        
+        // Mapping with complex transformation
+        Map<String, Set<String>> skillsByDepartment = employees.stream()
+            .collect(Collectors.groupingBy(
+                Employee::getDepartment,
+                Collectors.mapping(
+                    e -> e.getSkills(),
+                    Collectors.flatMapping(List::stream, Collectors.toSet())
+                )
+            ));
+            
+        System.out.println("\n6.2 Mapping with flatMapping to get unique skills by department:");
+        skillsByDepartment.forEach((dept, skills) -> {
+            System.out.println("  " + dept + " Department skills: " + skills.size() + " unique skills");
+            System.out.println("    " + String.join(", ", skills));
+        });
+        
+        // 7. FILTERING EXAMPLES (Java 9+)
+        System.out.println("\n7. FILTERING EXAMPLES\n");
+        
+        // Filtering with groupingBy
+        Map<String, List<Employee>> highEarnersByDepartment = employees.stream()
+            .collect(Collectors.groupingBy(
+                Employee::getDepartment,
+                Collectors.filtering(
+                    e -> e.getSalary() > 100000,
+                    Collectors.toList()
+                )
+            ));
+            
+        System.out.println("7.1 Filtering with groupingBy to find high earners by department:");
+        highEarnersByDepartment.forEach((dept, emps) -> {
+            if (!emps.isEmpty()) {
+                System.out.println("  " + dept + " Department high earners (>$100k): " + emps.size());
+                emps.forEach(e -> System.out.println("    - " + e.getName() + ", " + e.getTitle() + ", $" + e.getSalary()));
+            } else {
+                System.out.println("  " + dept + " Department: No employees earning >$100k");
+            }
+        });
+        
+        // 8. FLATMAPPING EXAMPLES (Java 9+)
+        System.out.println("\n8. FLATMAPPING EXAMPLES\n");
+        
+        // FlatMapping to get all skills
+        Map<String, Long> skillFrequencyByLocation = employees.stream()
+            .collect(Collectors.groupingBy(
+                Employee::getLocation,
+                Collectors.flatMapping(
+                    e -> e.getSkills().stream(),
+                    Collectors.groupingBy(
+                        Function.identity(),
+                        Collectors.counting()
+                    )
+                )
+            ));
+            
+        System.out.println("8.1 FlatMapping to get skill frequency by location:");
+        skillFrequencyByLocation.forEach((location, skillMap) -> {
+            System.out.println("  " + location + " top skills:");
+            skillMap.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(5)
+                .forEach(entry -> System.out.println("    - " + entry.getKey() + ": " + entry.getValue()));
+        });
+        
+        // 9. COLLECTINGANDTHEN EXAMPLES
+        System.out.println("\n9. COLLECTINGANDTHEN EXAMPLES\n");
+        
+        // CollectingAndThen to find highest paid employee
+        Employee highestPaid = employees.stream()
+            .collect(Collectors.collectingAndThen(
+                Collectors.maxBy(Comparator.comparing(Employee::getSalary)),
+                opt -> opt.orElseThrow(() -> new NoSuchElementException("No employees found"))
+            ));
+            
+        System.out.println("9.1 CollectingAndThen to find highest paid employee:");
+        System.out.println("  Highest paid: " + highestPaid.getName() + ", " + 
+            highestPaid.getTitle() + ", $" + highestPaid.getSalary());
+        
+        // CollectingAndThen with groupingBy to find department with most employees
+        Map.Entry<String, Integer> largestDepartment = employees.stream()
+            .collect(Collectors.groupingBy(
+                Employee::getDepartment,
+                Collectors.collectingAndThen(
+                    Collectors.counting(),
+                    Long::intValue
+                )
+            ))
+            .entrySet().stream()
+            .max(Map.Entry.comparingByValue())
+            .orElseThrow(() -> new NoSuchElementException("No departments found"));
+            
+        System.out.println("\n9.2 CollectingAndThen to find department with most employees:");
+        System.out.println("  Largest department: " + largestDepartment.getKey() + 
+            " with " + largestDepartment.getValue() + " employees");
+        
+        // 10. TOMAP EXAMPLES
+        System.out.println("\n10. TOMAP EXAMPLES\n");
+        
+        // Simple toMap
+        try {
+            Map<String, Double> nameSalaryMap = employees.stream()
+                .collect(Collectors.toMap(
+                    Employee::getName,
+                    Employee::getSalary
+                ));
+                
+            System.out.println("10.1 Simple toMap (name -> salary):");
+            nameSalaryMap.entrySet().stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .limit(5)
+                .forEach(entry -> System.out.println("  " + entry.getKey() + ": $" + entry.getValue()));
+        } catch (IllegalStateException e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+        
+        // ToMap with merge function
+        Map<String, Double> departmentTotalSalary = employees.stream()
+            .collect(Collectors.toMap(
+                Employee::getDepartment,
+                Employee::getSalary,
+                Double::sum  // Merge function to handle duplicate keys
+            ));
+            
+        System.out.println("\n10.2 ToMap with merge function (department -> total salary):");
+        departmentTotalSalary.forEach((dept, total) -> 
+            System.out.println("  " + dept + ": $" + String.format("%.2f", total)));
+        
+        // ToMap with complex key and value mapping
+        Map<Year, Map<String, Long>> hiresByYearAndDepartment = employees.stream()
+            .collect(Collectors.groupingBy(
+                e -> Year.of(e.getHireDate().getYear()),
+                Collectors.groupingBy(
+                    Employee::getDepartment,
+                    Collectors.counting()
+                )
+            ));
+            
+        System.out.println("\n10.3 Complex mapping with nested groupingBy (year -> department -> count):");
+        hiresByYearAndDepartment.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .forEach(yearEntry -> {
+                System.out.println("  " + yearEntry.getKey() + " hires:");
+                yearEntry.getValue().forEach((dept, count) -> 
+                    System.out.println("    " + dept + ": " + count));
+            });
+        
+        // 11. TOCONCURRENTMAP EXAMPLES
+        System.out.println("\n11. TOCONCURRENTMAP EXAMPLES\n");
+        
+        // Simple toConcurrentMap
+        ConcurrentMap<Integer, String> idToNameMap = employees.stream()
+            .collect(Collectors.toConcurrentMap(
+                Employee::getId,
+                Employee::getName
+            ));
+            
+        System.out.println("11.1 Simple toConcurrentMap (id -> name):");
+        idToNameMap.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .limit(5)
+            .forEach(entry -> System.out.println("  " + entry.getKey() + ": " + entry.getValue()));
+        
+        // 12. REDUCING EXAMPLES
+        System.out.println("\n12. REDUCING EXAMPLES\n");
+        
+        // Simple reducing
+        double totalSalary = employees.stream()
+            .collect(Collectors.reducing(
+                0.0,
+                Employee::getSalary,
+                Double::sum
+            ));
+            
+        System.out.println("12.1 Simple reducing to calculate total salary: $" + 
+            String.format("%.2f", totalSalary));
+        
+        // Reducing with groupingBy
+        Map<String, Optional<Employee>> highestPaidByDepartment = employees.stream()
+            .collect(Collectors.groupingBy(
+                Employee::getDepartment,
+                Collectors.reducing(
+                    BinaryOperator.maxBy(Comparator.comparing(Employee::getSalary))
+                )
+            ));
+            
+        System.out.println("\n12.2 Reducing with groupingBy to find highest paid by department:");
+        highestPaidByDepartment.forEach((dept, empOpt) -> {
+            empOpt.ifPresent(e -> System.out.println("  " + dept + ": " + 
+                e.getName() + ", " + e.getTitle() + ", $" + e.getSalary()));
+        });
+        
+        // 13. TEEING EXAMPLES (Java 12+)
+        System.out.println("\n13. TEEING EXAMPLES\n");
+        
+        // Teeing to calculate statistics
+        Map<String, Object> salaryStats = employees.stream()
+            .collect(Collectors.teeing(
+                Collectors.averagingDouble(Employee::getSalary),
+                Collectors.counting(),
+                (avg, count) -> {
+                    Map<String, Object> stats = new HashMap<>();
+                    stats.put("average", avg);
+                    stats.put("count", count);
+                    stats.put("estimatedTotal", avg * count);
+                    return stats;
+                }
+            ));
+            
+        System.out.println("13.1 Teeing to calculate multiple statistics in one pass:");
+        System.out.println("  Employee count: " + salaryStats.get("count"));
+        System.out.println("  Average salary: $" + String.format("%.2f", (Double)salaryStats.get("average")));
+        System.out.println("  Estimated total: $" + String.format("%.2f", (Double)salaryStats.get("estimatedTotal")));
+        
+        // Teeing for min and max
+        Map<String, Employee> salaryExtremes = employees.stream()
+            .collect(Collectors.teeing(
+                Collectors.minBy(Comparator.comparing(Employee::getSalary)),
+                Collectors.maxBy(Comparator.comparing(Employee::getSalary)),
+                (min, max) -> {
+                    Map<String, Employee> result = new HashMap<>();
+                    min.ifPresent(e -> result.put("min", e));
+                    max.ifPresent(e -> result.put("max", e));
+                    return result;
+                }
+            ));
+            
+        System.out.println("\n13.2 Teeing to find salary extremes in one pass:");
+        Employee minSalary = salaryExtremes.get("min");
+        Employee maxSalary = salaryExtremes.get("max");
+        System.out.println("  Lowest paid: " + minSalary.getName() + ", " + 
+            minSalary.getTitle() + ", $" + minSalary.getSalary());
+        System.out.println("  Highest paid: " + maxSalary.getName() + ", " + 
+            maxSalary.getTitle() + ", $" + maxSalary.getSalary());
+        
+        // 14. GROUPINGBYCONCURRENT EXAMPLES
+        System.out.println("\n14. GROUPINGBYCONCURRENT EXAMPLES\n");
+        
+        // Simple groupingByConcurrent
+        ConcurrentMap<String, List<Employee>> concurrentDeptMap = employees.parallelStream()
+            .collect(Collectors.groupingByConcurrent(Employee::getDepartment));
+            
+        System.out.println("14.1 Simple groupingByConcurrent by department:");
+        concurrentDeptMap.forEach((dept, emps) -> 
+            System.out.println("  " + dept + ": " + emps.size() + " employees"));
+        
+        // GroupingByConcurrent with downstream collector
+        ConcurrentMap<String, ConcurrentMap<Integer, List<Employee>>> concurrentLocationYearMap = 
+            employees.parallelStream()
+                .collect(Collectors.groupingByConcurrent(
+                    Employee::getLocation,
+                    Collectors.groupingByConcurrent(
+                        e -> e.getHireDate().getYear()
+                    )
+                ));
+                
+        System.out.println("\n14.2 GroupingByConcurrent with downstream groupingByConcurrent:");
+        concurrentLocationYearMap.forEach((location, yearMap) -> {
+            System.out.println("  " + location + ":");
+            yearMap.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> 
+                    System.out.println("    " + entry.getKey() + ": " + entry.getValue().size() + " employees"));
+        });
+        
+        // REAL-WORLD COMPLEX EXAMPLE
+        System.out.println("\n15. REAL-WORLD COMPLEX EXAMPLE\n");
+        
+        // Complex analysis combining multiple collectors
+        // Goal: Generate a comprehensive department report with multiple metrics
+        Map<String, DepartmentReport> departmentReports = employees.stream()
+            .collect(Collectors.groupingBy(
+                Employee::getDepartment,
+                Collectors.collectingAndThen(
+                    Collectors.toList(),
+                    deptEmployees -> {
+                        // Calculate salary statistics
+                        DoubleSummaryStatistics salaryStats = deptEmployees.stream()
+                            .collect(Collectors.summarizingDouble(Employee::getSalary));
+                        
+                        // Find highest paid employee
+                        Employee highestPaid = deptEmployees.stream()
+                            .max(Comparator.comparing(Employee::getSalary))
+                            .orElse(null);
+                        
+                        // Group by hire year
+                        Map<Integer, Long> hiresByYear = deptEmployees.stream()
+                            .collect(Collectors.groupingBy(
+                                e -> e.getHireDate().getYear(),
+                                Collectors.counting()
+                            ));
+                        
+                        // Get all unique skills in department
+                        Set<String> departmentSkills = deptEmployees.stream()
+                            .flatMap(e -> e.getSkills().stream())
+                            .collect(Collectors.toSet());
+                        
+                        // Get skill frequency
+                        Map<String, Long> skillFrequency = deptEmployees.stream()
+                            .flatMap(e -> e.getSkills().stream())
+                            .collect(Collectors.groupingBy(
+                                Function.identity(),
+                                Collectors.counting()
+                            ));
+                        
+                        // Find top skills
+                        List<String> topSkills = skillFrequency.entrySet().stream()
+                            .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                            .limit(3)
+                            .map(Map.Entry::getKey)
+                            .collect(Collectors.toList());
+                        
+                        // Calculate seniority distribution
+                        Map<String, Long> seniorityDistribution = deptEmployees.stream()
+                            .collect(Collectors.groupingBy(
+                                e -> {
+                                    LocalDate now = LocalDate.now();
+                                    int yearsEmployed = now.getYear() - e.getHireDate().getYear();
+                                    if (yearsEmployed < 2) return "Junior (0-1 years)";
+                                    else if (yearsEmployed < 5) return "Mid-level (2-4 years)";
+                                    else return "Senior (5+ years)";
+                                },
+                                Collectors.counting()
+                            ));
+                        
+                        // Create the report
+                        return new DepartmentReport(
+                            deptEmployees.size(),
+                            salaryStats,
+                            highestPaid,
+                            hiresByYear,
+                            departmentSkills,
+                            topSkills,
+                            seniorityDistribution
+                        );
+                    }
+                )
+            ));
+        
+        // Print the comprehensive report
+        System.out.println("Comprehensive Department Analysis Report:\n");
+        departmentReports.forEach((dept, report) -> {
+            System.out.println("=== " + dept + " Department Report ===");
+            System.out.println("Employee Count: " + report.getEmployeeCount());
+            
+            System.out.println("\nSalary Statistics:");
+            DoubleSummaryStatistics stats = report.getSalaryStats();
+            System.out.println("  Average: $" + String.format("%.2f", stats.getAverage()));
+            System.out.println("  Total Budget: $" + String.format("%.2f", stats.getSum()));
+            System.out.println("  Range: $" + String.format("%.2f", stats.getMin()) + 
+                " - $" + String.format("%.2f", stats.getMax()));
+            
+            Employee topEarner = report.getHighestPaidEmployee();
+            System.out.println("\nHighest Paid Employee:");
+            System.out.println("  " + topEarner.getName() + ", " + topEarner.getTitle() + 
+                ", $" + topEarner.getSalary());
+            
+            System.out.println("\nHiring History:");
+            report.getHiresByYear().entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> System.out.println("  " + entry.getKey() + ": " + entry.getValue() + " hires"));
+            
+            System.out.println("\nSkill Coverage: " + report.getDepartmentSkills().size() + " unique skills");
+            System.out.println("Top Skills: " + String.join(", ", report.getTopSkills()));
+            
+            System.out.println("\nSeniority Distribution:");
+            report.getSeniorityDistribution().forEach((level, count) -> 
+                System.out.println("  " + level + ": " + count + " employees"));
+            
+            System.out.println();
+        });
+    }
+    
+    static class DepartmentReport {
+        private final int employeeCount;
+        private final DoubleSummaryStatistics salaryStats;
+        private final Employee highestPaidEmployee;
+        private final Map<Integer, Long> hiresByYear;
+        private final Set<String> departmentSkills;
+        private final List<String> topSkills;
+        private final Map<String, Long> seniorityDistribution;
+        
+        public DepartmentReport(int employeeCount, DoubleSummaryStatistics salaryStats,
+                              Employee highestPaidEmployee, Map<Integer, Long> hiresByYear,
+                              Set<String> departmentSkills, List<String> topSkills,
+                              Map<String, Long> seniorityDistribution) {
+            this.employeeCount = employeeCount;
+            this.salaryStats = salaryStats;
+            this.highestPaidEmployee = highestPaidEmployee;
+            this.hiresByYear = hiresByYear;
+            this.departmentSkills = departmentSkills;
+            this.topSkills = topSkills;
+            this.seniorityDistribution = seniorityDistribution;
+        }
+        
+        public int getEmployeeCount() { return employeeCount; }
+        public DoubleSummaryStatistics getSalaryStats() { return salaryStats; }
+        public Employee getHighestPaidEmployee() { return highestPaidEmployee; }
+        public Map<Integer, Long> getHiresByYear() { return hiresByYear; }
+        public Set<String> getDepartmentSkills() { return departmentSkills; }
+        public List<String> getTopSkills() { return topSkills; }
+        public Map<String, Long> getSeniorityDistribution() { return seniorityDistribution; }
     }
     
     static class Employee {
@@ -1454,9 +1976,10 @@ public class AdvancedCollectorsExample {
         private final double salary;
         private final LocalDate hireDate;
         private final String location;
+        private final List<String> skills;
         
         public Employee(int id, String name, String department, String title, 
-                       double salary, LocalDate hireDate, String location) {
+                       double salary, LocalDate hireDate, String location, List<String> skills) {
             this.id = id;
             this.name = name;
             this.department = department;
@@ -1464,6 +1987,7 @@ public class AdvancedCollectorsExample {
             this.salary = salary;
             this.hireDate = hireDate;
             this.location = location;
+            this.skills = skills;
         }
         
         public int getId() { return id; }
@@ -1473,6 +1997,7 @@ public class AdvancedCollectorsExample {
         public double getSalary() { return salary; }
         public LocalDate getHireDate() { return hireDate; }
         public String getLocation() { return location; }
+        public List<String> getSkills() { return skills; }
         
         @Override
         public String toString() {
@@ -1484,6 +2009,7 @@ public class AdvancedCollectorsExample {
                    ", salary=" + salary +
                    ", hireDate=" + hireDate +
                    ", location='" + location + '\'' +
+                   ", skills=" + skills +
                    '}';
         }
     }
